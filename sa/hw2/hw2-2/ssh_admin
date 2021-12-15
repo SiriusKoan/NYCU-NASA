@@ -1,0 +1,17 @@
+#!/bin/sh
+
+while [ $(cat /tmp/.admin_status) = "on" ]
+do
+	cat /var/log/auth.log | awk '{if (/.*error: PAM.*/) {if(NF==13)count[$11]++} if (/last message repeated [0-9]* times/ && match(prev,/.*error: PAM.*/)) {n=split(prev,prev_split," ");count[prev_split[11]]+=$9}} {prev=$0} END{for ( word in count ){if(count[word]>=3) content=word"\n"content}} END{print content > "/tmp/.admin_locked"}'
+	while read line
+	do
+		pw lock $line > /dev/null 2>&1;
+	done</tmp/.admin_locked
+done
+
+# unlock all users
+while read line
+do
+	pw unlock $line > /dev/null 2>&1;
+done</tmp/.admin_locked
+
