@@ -8,7 +8,7 @@
 2. `audit_sudo.txt`
     - 列出 sudo 使用者和其執行的指令
     - ``{user} used sudo to do `{command}` on {date}``
-    - 把日期轉成 `YYYY-MM-DD` 的格式
+    - 把日期轉成 `YYYY-MM-DD` 的格式 (bonus)
 3. `audit_user.txt`
     - 列出使用者登入失敗次數
     - `{user} failed to log in {login failed times} times`
@@ -20,7 +20,8 @@
 
 ### 解法
 1. 因為只能用一個 `>`，所以可以用 `awk` 的 `for` 來跑三次，這三次分別是 `sudo`、`ip` 和 `user`
-2. 手建一個 array 來存英文月份和數字月份的對應表
+2. `last message repeated [0-9]* times` 也需要考慮，所以把上一行存在 `prev` 裡面，如果 repeat 的真的是 PAM error 的話就計入
+3. 手建一個 array 來存英文月份和數字月份的對應表
 
 ## HW2-2 System Info Panel
 ### 題目
@@ -36,7 +37,7 @@
     - 看他的登入紀錄
     - 看他的 sudo 紀錄
 3. 匯出資訊
-4. 登入失敗太多次就鎖定，在這裡面可以打開/關掉這個功能
+4. 登入失敗太多次就鎖定，在這裡面可以打開/關掉這個功能 (bonus)
 5. 特調 status code
 6. 其他需求
     - 只能用 `sh`
@@ -46,7 +47,7 @@
 1. Announcement
     1. 直接 `echo {message} > /dev/{user's tty}`
     2. `wall`, `write` 指令
-2. 鎖定使用者: `pw`
+2. 鎖定使用者: `pw lock/unlock`
 3. group: `id -G {username}`
 4. port: `sockstat`
 5. 登入紀錄: `last`
@@ -55,7 +56,8 @@
     1. `trap` 抓 Ctrl-C
     2. `Esc` 預設 255，抓起來之後自己 `exit 1`
 8. 登入失敗太多次就鎖定
-    - 開一個 subprocess 起來跑
-    - 看到錯誤太多次就 `pw lock`，存到一個暫存檔
+    - 開一個 subprocess 起來跑，用 `/tmp/.admin_status` 控制開關
+    - 用 hw2-1 的方法去看次數
+    - 看到錯誤太多次就 `pw lock`，存到一個暫存檔 `/tmp/.admin_locked`
     - 關掉的時候把暫存檔的使用者都 `pw unlock`
 
