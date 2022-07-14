@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<pre id="log"></pre>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<body>
+	<button onclick="start();">start</button>
+	<div>
+		<canvas id="chart"></canvas>
+	</div>
+	<div id="ws" style="display: inline-block; width: 40vw;">
+		<h2>ws</h2>
+	</div>
+	<div id="wss" style="display: inline-block; width: 40vw;">
+		<h2>wss</h2>
+	</div>
+	<script>
+		function start() {
+			// setup websocket with callbacks
+			nums = [];
+			labels = [];
+			const data = {
+				labels: labels,
+				datasets: [{
+					label: 'nums',
+					borderColor: 'rgb(255, 99, 132)',
+					data: nums,
+				}]
+			}
+			const config = {
+				type: 'line',
+				data: data,
+				options: {}
+			};
+			const chart = new Chart(document.getElementById("chart"), config);
+			var ws = new WebSocket('ws://192.168.56.1:8080/');
+			ws.onopen = function() {
+				console.log('CONNECT');
+			};
+			ws.onclose = function() {
+				console.log('DISCONNECT');
+			};
+			ws.onmessage = function(event) {
+				var element = document.createElement("div");
+				element.innerText = event.data;
+				document.getElementById("ws").appendChild(element);
+				//nums.push(event.data);
+				//labels.push("0");
+				chart.data.labels.push(0);
+				chart.data.datasets.forEach((dataset) => {
+					dataset.data.push(parseInt(event.data));
+				});
+				chart.update();
+				//document.getElementById("chart").innerText += " " + event.data.split(",")[0];
+			};
+			var wss = new WebSocket('wss://192.168.56.1:8081/');
+			wss.onopen = function() {
+				console.log('CONNECT');
+			};
+			wss.onclose = function() {
+				console.log('DISCONNECT');
+			};
+			wss.onmessage = function(event) {
+				var element = document.createElement("div");
+				element.innerText = event.data;
+				document.getElementById("wss").appendChild(element);
+			};
+		}
+	</script>
+</body>
+
