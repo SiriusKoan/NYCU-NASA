@@ -1,0 +1,141 @@
+#!/usr/local/bin/bash
+
+if [[ $1 == "" ]]; then
+        echo "Usage:
+- create: zfsbak DATASET [ROTATION_CNT]
+- list: zfsbak -l|--list [DATASET|ID|DATASET ID]
+- delete: zfsbak -d|--delete [DATASET|ID|DATASET ID]
+- export: zfsbak -e|--export DATASET [ID]
+- import: zfsbak -i|--import FILENAME DATASET"
+
+elif [[ $1 == "-l" || $1 == "--list" ]]; then
+        # list
+        echo -e "ID\tDATASET\tTIME"
+        if [[ $2 != "" && $3 != "" ]]; then
+                dataset=$2
+                id=$3
+                record=$(zfs list -r -t snapshot -s creation -H -o name,creation $dataset | awk -v id="$id" '{split($1,a,"@")}NR==id{{printf a[1]"\t"}{for (i=2;i<=NF;++i)printf $i" "}}')
+                echo -e "$id\t$record"
+        elif [[ $2 != "" ]]; then
+                if [[ $2 =~ ^[0-9]+$ ]]; then
+                        id=$2
+                        record=$(zfs list -r -t snapshot -s creation -H -o name,creation mypool | awk -v id="$id" '{split($1,a,"@")}NR==id{{printf a[1]"\t"}{for (i=2;i<=NF;++i)printf $i" "}}')
+                        echo -e "$id\t$record"
+                else
+                        dataset=$2
+                        i=1
+                        zfs list -r -t snapshot -s creation -H -o name,creation $dataset | while read line; do
+                                record=$(echo $line | awk '{split($1,a,"@")}{printf a[1]"\t"}{for (i=2;i<=NF;++i)printf $i" "}')
+                                echo -e "$i\t$record"
+                                i=$((i+1))
+                        done
+                fi
+        else
+                i=1
+                zfs list -r -t snapshot -s creation -H -o name,creation | while read line; do
+                        record=$(echo $line | awk '{split($1,a,"@")}{printf a[1]"\t"}{for (i=2;i<=NF;++i)printf $i" "}')
+                        echo -e "$i\t$record"
+                        i=$((i+1))
+                done
+        fi
+elif [[ $1 == "-d" || $1 == "--delete" ]]; then
+        if [[ $2 != "" && $3 != "" ]]; then
+                dataset=$2
+                ids=( "$@" )
+                i=1
+                zfs list -r -t snapshot -s creation -H -o name $dataset | while read line; do
+                        for id in ${ids[@]}; do
+                                if [[ $id =~ ^[0-9]+$ ]];then
+                                        if [[ $i -eq $id ]]; then
+                                                echo "Destroy $line"
+                                                zfs destroy $line
+                                        fi
+                                fi
+                        done
+                        i=$((i+1))
+                done
+        elif [[ $2 != "" ]]; then
+                if [[ $2 =~ ^[0-9]+$ ]]; then
+                        id=$2
+                        zfs list -H -o name -t snapshot | grep mypool | while read line; do
+                                if [[ $i -eq $id ]]; then
+                                        record=$(echo $line | awk '{print $1}')
+                                        echo "Destroy $record"
+                                        zfs destroy $record
+                                fi
+                                i=$((i+1))
+                        done
+                else
+                        dataset=$2
+                        zfs list -s creation -H -o name -t snapshot $dataset | while read line; do
+                                record=$(echo $line | awk '{print $1}')
+                                echo "Destroy $record"
+                                zfs destroy $record
+                        done
+                fi
+        else
+                zfs list -r -t snapshot -s creation -H -o name | while read line; do
+                        echo "Destroy $line"
+                        zfs destroy $line
+                done
+        fi
+elif [[ $1 == "-e" || $1 == "--export" ]]; then
+        dataset=$2
+        id=$3
+        if [[ $id == "" ]]; then
+                id=1
+        fi
+        if [[ $dataset == "" ]]; then
+                echo "No dataset provided."
+        else
+                i=1
+                record=""
+                zfs list -H -o name -t snapshot $dataset | while read line; do
+                        if [[ $i -eq $id ]]; then
+                                record=$line
+                                filename=$(echo $record | sed 's/\//_/')
+                                sudo zfs send $record | gzip | openssl aes-256-cbc -a -salt > "/home/$SUDO_USER/$filename.gz.enc"
+                                echo "Export $record to ~/$record.gz.enc"
+                        fi
+                        i=$((i+1))
+                done
+        fi
+
+elif [[ $1 == "-i" || $1 == "--import" ]]; then
+        filename=$2
+        dataset=$3
+        if [[ $filename == "" || $dataset == "" ]]; then
+                echo "Filename or dataset is not provided."
+        else
+                cat $filename | openssl aes-256-cbc -d -a | gzip -d | zfs receive -F $dataset
+                echo "Import $filename to $dataset"
+        fi
+else
+        dataset=$1
+        count=$2
+        if [[ $count == "" ]]; then
+                count=20
+        fi
+        if [[ $dataset == "" ]]; then
+                echo "Dataset must be provided."
+        else
+                line=$(zfs list -s creation -H -o name -t snapshot $dataset | awk 'END{print NR}')
+                newest=$(zfs list -s creation -H -o name -t snapshot $dataset | awk 'END{print}')
+                oldest=$(zfs list -s creation -H -o name -t snapshot $dataset | awk 'NR==1{print}')
+                if [[ count -le line ]]; then
+                        zfs destroy $oldest
+                fi
+                name=$dataset"@"$(date +"%Y-%m-%d-%H:%M:%S")
+                if [[ -z $newest ]]; then
+                        diff="no"
+                else
+                        diff=$(zfs diff $newest)
+                fi
+                if [[ -n $diff ]]; then
+                        zfs snapshot $name
+                        echo "Snap $name"
+                else
+                        echo "Snapshot is the same as latest one!"
+                fi
+        fi
+fi
