@@ -1,0 +1,3 @@
+V4: /
+/vol/stu76      -maproot=nobody -network 10.113.0.76/32
+/vol/public1 /vol/public2       -ro -maproot=nobody     -network 10.113.0.0/24

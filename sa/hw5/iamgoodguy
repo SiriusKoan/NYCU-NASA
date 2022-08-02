@@ -1,0 +1,1 @@
+sudo pfctl -t sshguard -T delete $1

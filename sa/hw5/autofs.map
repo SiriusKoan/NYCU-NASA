@@ -1,0 +1,3 @@
+public1 -ro     10.113.254.76:/vol/public1
+public2 -ro     10.113.254.76:/vol/public2
+stu76   -rw     10.113.254.76:/vol/stu76
