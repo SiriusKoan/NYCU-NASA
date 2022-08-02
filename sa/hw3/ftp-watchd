@@ -1,0 +1,41 @@
+#!/usr/local/bin/bash
+
+. /etc/rc.subr
+
+name="ftp_watchd"
+rcvar="$ftp_watchd_enable"
+
+load_rc_config $name
+
+pidfile="/var/run/pure-uploadscript.pid"
+start_cmd=start_cmd
+stop_cmd=stop_cmd
+restart_cmd=restart_cmd
+extra_commands="status"
+status_cmd=status_cmd
+
+start_cmd(){
+        PATH=$PATH:/usr/local/sbin
+        pure-uploadscript -B -r /usr/local/bin/uploadscript.sh
+        pid=$(ps aux | grep pure-uploadscript | awk 'NR==1{print $2}')
+        echo $pid > $pidfile
+        echo "Starting ftp-watchd."
+}
+
+stop_cmd(){
+        pid=$(cat $pidfile)
+        kill $pid
+        echo "Kill: $pid"
+}
+
+status_cmd(){
+        pid=$(cat $pidfile)
+        echo "ftp-watchd is running as pid $pid"
+}
+
+restart_cmd(){
+        stop_cmd
+        start_cmd
+}
+
+run_rc_command "$1"
